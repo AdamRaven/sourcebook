@@ -54,6 +54,9 @@ export default function ChatPanel({
         body: JSON.stringify({ notebookId, question }),
       });
 
+      if (res.status === 401) {
+        throw new Error("Deine Sitzung ist abgelaufen. Bitte lade die Seite neu und melde dich erneut an.");
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `Anfrage fehlgeschlagen (${res.status})`);

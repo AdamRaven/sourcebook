@@ -26,9 +26,15 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isLogin = request.nextUrl.pathname.startsWith("/login");
+  const path = request.nextUrl.pathname;
+  const isLogin = path.startsWith("/login");
+  const isApi = path.startsWith("/api/");
 
-  if (!user && !isLogin) {
+  // API routes answer in JSON, so they must not be redirected to an HTML
+  // login page — a fetch would follow the redirect and then fail to parse
+  // the response, which tells the user nothing. The route handlers return
+  // their own 401 instead.
+  if (!user && !isLogin && !isApi) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   if (user && isLogin) {
