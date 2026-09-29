@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Die Vorlage gehoert ins Repo, die echten Werte nicht
+!.env.example
