@@ -1,5 +1,9 @@
 # Sourcebook
 
+[![CI](https://github.com/AdamRaven/sourcebook/actions/workflows/ci.yml/badge.svg)](https://github.com/AdamRaven/sourcebook/actions/workflows/ci.yml)
+
+**Live:** https://sourcebook-delta.vercel.app
+
 Ein Klon von [NotebookLM](https://notebooklm.google.com): Du lädst eigene Dokumente
 hoch und stellst Fragen dazu. Die Antworten werden **ausschliesslich** aus diesen
 Dokumenten gebildet und mit Fundstellen belegt, die man anklicken kann.
