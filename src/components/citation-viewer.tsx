@@ -23,7 +23,7 @@ export default function CitationViewer({
   const end = citation.end_char_index ?? chunk.content.length;
 
   return (
-    <aside className="flex h-full w-96 shrink-0 flex-col border-l">
+    <aside data-testid="citation-viewer" className="flex h-full w-96 shrink-0 flex-col border-l">
       <header className="flex items-start justify-between gap-2 border-b p-4">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -42,7 +42,7 @@ export default function CitationViewer({
       <ScrollArea className="flex-1">
         <p className="whitespace-pre-wrap p-4 text-sm leading-relaxed text-muted-foreground">
           {chunk.content.slice(0, start)}
-          <mark className="rounded bg-yellow-200 px-0.5 font-medium text-neutral-900 dark:bg-yellow-500/30 dark:text-neutral-50">
+          <mark data-testid="cited-text" className="rounded bg-yellow-200 px-0.5 font-medium text-neutral-900 dark:bg-yellow-500/30 dark:text-neutral-50">
             {chunk.content.slice(start, end)}
           </mark>
           {chunk.content.slice(end)}

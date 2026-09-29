@@ -42,6 +42,7 @@ export default async function HomePage() {
             <li key={n.id}>
               <Link
                 href={`/notebook/${n.id}`}
+                data-testid="notebook-link"
                 className="flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-accent"
               >
                 <BookOpen className="size-4 shrink-0 text-muted-foreground" />

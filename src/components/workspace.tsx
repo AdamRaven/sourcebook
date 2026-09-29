@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import SourcePanel from "@/components/source-panel";
-import ChatPanel from "@/components/chat-panel";
+import ChatPanel, { type Turn } from "@/components/chat-panel";
 import CitationViewer from "@/components/citation-viewer";
 import { renameNotebook } from "@/app/actions";
 import type { Citation, RetrievedChunk, Source } from "@/lib/types";
@@ -14,10 +14,12 @@ export default function Workspace({
   notebookId,
   title: initialTitle,
   sources,
+  history,
 }: {
   notebookId: string;
   title: string;
   sources: Source[];
+  history: Turn[];
 }) {
   const [title, setTitle] = useState(initialTitle);
   const [open, setOpen] = useState<{ citation: Citation; chunk: RetrievedChunk } | null>(null);
@@ -45,6 +47,7 @@ export default function Workspace({
         <ChatPanel
           notebookId={notebookId}
           hasSources={sources.length > 0}
+          history={history}
           onOpenCitation={(citation, chunks) => {
             const chunk = chunks[citation.document_index];
             if (chunk) setOpen({ citation, chunk });

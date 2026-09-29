@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { RetrievedChunk } from "@/lib/types";
+import { chatSchema, firstError } from "@/lib/schemas";
+import { MAX_QUESTIONS_PER_HOUR } from "@/lib/limits";
+import type { Citation, RetrievedChunk } from "@/lib/types";
 
 export const maxDuration = 60;
 
@@ -32,11 +34,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
   }
 
-  const { notebookId, question } = await request.json();
-  if (!notebookId || !question?.trim()) {
+  const raw = await request.json().catch(() => null);
+  const parsed = chatSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
+  }
+  const { notebookId, question } = parsed.data;
+
+  // There is a paid API behind this. Row level security means this count only
+  // ever sees this user's own messages, so it is a per-user budget.
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "user")
+    .gte("created_at", since);
+
+  if ((count ?? 0) >= MAX_QUESTIONS_PER_HOUR) {
     return NextResponse.json(
-      { error: "notebookId und question sind Pflicht." },
-      { status: 400 },
+      {
+        error: `Du hast das Stundenlimit von ${MAX_QUESTIONS_PER_HOUR} Fragen erreicht. Bitte versuche es später noch einmal.`,
+      },
+      { status: 429 },
     );
   }
 
@@ -47,7 +66,10 @@ export async function POST(request: Request) {
   );
   if (embedError || !embedded?.embeddings?.[0]) {
     console.error("embed failed", embedError);
-    return NextResponse.json({ error: "Frage konnte nicht verarbeitet werden." }, { status: 502 });
+    return NextResponse.json(
+      { error: "Die Frage konnte nicht verarbeitet werden." },
+      { status: 502 },
+    );
   }
 
   // 2. Nearest neighbours inside this notebook. RLS keeps it to this user.
@@ -58,7 +80,7 @@ export async function POST(request: Request) {
   });
   if (error) {
     console.error("match_chunks failed", error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: "Die Suche ist fehlgeschlagen." }, { status: 400 });
   }
   if (!rows || rows.length === 0) {
     return NextResponse.json(
@@ -75,6 +97,12 @@ export async function POST(request: Request) {
     content: r.content as string,
     similarity: r.similarity as number,
   }));
+
+  await supabase.from("messages").insert({
+    notebook_id: notebookId,
+    role: "user",
+    content: question,
+  });
 
   // 3. Each chunk becomes its own citable document. The order here is exactly
   //    what Claude's document_index refers to, and the client gets it too.
@@ -108,20 +136,41 @@ export async function POST(request: Request) {
       // The client needs the chunk list to resolve a citation to its source.
       send({ type: "sources", chunks });
 
+      let answer = "";
+      // Where each citation appeared in the answer. Recording it here means a
+      // reloaded conversation can put the markers back in the same places.
+      const marks: { at: number; citation: Citation }[] = [];
+
       try {
         for await (const event of claude) {
           if (event.type !== "content_block_delta") continue;
           if (event.delta.type === "text_delta") {
+            answer += event.delta.text;
             send({ type: "text", text: event.delta.text });
           } else if (event.delta.type === "citations_delta") {
+            marks.push({ at: answer.length, citation: event.delta.citation as Citation });
             send({ type: "citation", citation: event.delta.citation });
           }
         }
         send({ type: "done" });
       } catch (err) {
         console.error("claude stream failed", err);
-        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+        send({
+          type: "error",
+          message: "Die Antwort wurde unterbrochen. Bitte versuche es erneut.",
+        });
       }
+
+      // Persist whatever was produced, so a reload does not lose the thread.
+      if (answer.trim()) {
+        await supabase.from("messages").insert({
+          notebook_id: notebookId,
+          role: "assistant",
+          content: answer,
+          citations: { marks, chunks },
+        });
+      }
+
       controller.close();
     },
   });

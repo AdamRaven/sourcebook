@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Citation, RetrievedChunk } from "@/lib/types";
 
-type Turn = {
+export type Turn = {
   role: "user" | "assistant";
   text: string;
   /** Where in `text` each citation appeared, so markers land inline. */
@@ -18,13 +18,15 @@ type Turn = {
 export default function ChatPanel({
   notebookId,
   hasSources,
+  history,
   onOpenCitation,
 }: {
   notebookId: string;
   hasSources: boolean;
+  history: Turn[];
   onOpenCitation: (citation: Citation, chunks: RetrievedChunk[]) => void;
 }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(history);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,12 +126,15 @@ export default function ChatPanel({
             {turns.map((turn, i) =>
               turn.role === "user" ? (
                 <div key={i} className="flex justify-end">
-                  <p className="max-w-[85%] rounded-2xl bg-primary px-4 py-2 text-sm text-primary-foreground">
+                  <p
+                    data-testid="user-message"
+                    className="max-w-[85%] rounded-2xl bg-primary px-4 py-2 text-sm text-primary-foreground"
+                  >
                     {turn.text}
                   </p>
                 </div>
               ) : (
-                <div key={i} className="text-sm leading-relaxed">
+                <div key={i} data-testid="assistant-message" className="text-sm leading-relaxed">
                   <Answer turn={turn} onOpenCitation={onOpenCitation} />
                   {busy && i === turns.length - 1 && !turn.text && (
                     <span className="text-muted-foreground">Sucht in den Quellen…</span>
@@ -195,6 +200,7 @@ function Answer({
       <button
         key={`c${n}`}
         type="button"
+        data-testid="citation-chip"
         title={mark.citation.cited_text}
         onClick={() => onOpenCitation(mark.citation, turn.chunks)}
         className="mx-0.5 inline-flex size-4 -translate-y-px items-center justify-center rounded bg-muted align-middle text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"

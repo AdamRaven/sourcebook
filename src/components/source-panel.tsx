@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { deleteSource } from "@/app/actions";
 import { extractPdfText } from "@/lib/pdf";
+import { MAX_FILE_BYTES, formatBytes } from "@/lib/limits";
 import type { Source } from "@/lib/types";
 
 export default function SourcePanel({
@@ -41,6 +42,14 @@ export default function SourcePanel({
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
     for (const file of Array.from(files)) {
+      // Checked before reading: parsing a huge PDF freezes the tab long before
+      // the server would ever get a chance to reject it.
+      if (file.size > MAX_FILE_BYTES) {
+        toast.error(file.name, {
+          description: `Die Datei ist ${formatBytes(file.size)} gross. Erlaubt sind ${formatBytes(MAX_FILE_BYTES)}.`,
+        });
+        continue;
+      }
       setBusy(`${file.name} wird gelesen…`);
       try {
         const content =
@@ -157,6 +166,7 @@ export default function SourcePanel({
           {sources.map((s) => (
             <li
               key={s.id}
+              data-testid="source-item"
               className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-accent"
             >
               <FileText className="size-4 shrink-0 text-muted-foreground" />

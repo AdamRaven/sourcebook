@@ -42,3 +42,8 @@ next-env.d.ts
 
 # Die Vorlage gehoert ins Repo, die echten Werte nicht
 !.env.example
+
+# Cypress
+cypress/screenshots
+cypress/videos
+cypress/downloads

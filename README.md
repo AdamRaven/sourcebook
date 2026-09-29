@@ -64,6 +64,43 @@ deshalb keine fremden Daten preisgeben.
 Der Supabase-anon-key darf dagegen öffentlich sein: was die Daten schützt, ist
 Row Level Security, nicht die Geheimhaltung dieses Werts.
 
+## Tests
+
+```bash
+npm test          # startet den Dev-Server und laesst Cypress durchlaufen
+npm run lint      # ESLint
+npm run typecheck # tsc ohne Ausgabe
+```
+
+19 End-to-End-Tests in vier Gruppen:
+
+| Datei | Prueft |
+|---|---|
+| `01-zugang` | Umleitung ohne Anmeldung, Bedienbarkeit der Maske, deutsche Fehlermeldungen, `401` statt HTML auf API-Routen |
+| `02-validierung` | Dass kaputte, leere und uebergrosse Anfragen abgewiesen werden |
+| `03-notebook` | Notebook anlegen, Quelle aufnehmen und entfernen, Titel merken, gesperrter Chat ohne Quellen |
+| `04-antworten-mit-belegen` | Echte Modellantworten: richtige Antwort, klickbarer Beleg auf die Originalstelle, **keine Erfindung** wenn die Quelle nichts hergibt, Verlauf nach Neuladen |
+
+Der letzte Satz ruft das echte Modell auf und kostet ein paar Cent pro Durchlauf.
+Er ist der einzige, der beweist, dass der Kern wirklich trägt.
+
+`.github/workflows/ci.yml` laesst Lint, Typen und Build bei jedem Push laufen.
+Cypress laeuft dort nur, wenn die Zugangsdaten als Repository-Secrets
+hinterlegt sind — sonst wird der Schritt uebersprungen statt rot zu werden.
+
+## Grenzen
+
+Hinter der App steht eine kostenpflichtige API, also ist jede Eingabe begrenzt
+(`src/lib/limits.ts`):
+
+- 20 MB pro Datei, schon im Browser geprueft, bevor ein Riesen-PDF den Tab einfriert
+- 500.000 Zeichen pro Quelle
+- 2.000 Zeichen pro Frage
+- 60 Fragen pro Stunde und Nutzer
+
+Alle Anfragen an die API werden mit zod geprueft, bevor sie die Datenbank
+erreichen.
+
 ## Lokal starten
 
 ```bash
@@ -97,8 +134,6 @@ Naheliegend als nächstes:
 
 - **Audio Overview** — die Podcast-Funktion, für die NotebookLM bekannt ist
 - **URL als Quelle** — serverseitig abrufen und lesbar machen
-- **Gespräche speichern** — das Schema hat die Tabelle, die Oberfläche nutzt sie
-  noch nicht; ein Neuladen leert den Verlauf
 - **Hybride Suche** — aktuell rein semantisch, keine Stichwortsuche daneben
 
 ## Modell und Kosten

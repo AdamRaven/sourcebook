@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Lint, Typen, Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          # Der Build prueft nur, ob alles uebersetzt. Echte Werte braucht er
+          # nicht, aber die Variablen muessen gesetzt sein.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: platzhalter
+
+  e2e:
+    name: Cypress
+    runs-on: ubuntu-latest
+    # Laeuft nur, wenn die Zugangsdaten hinterlegt sind. In einem Fork ohne
+    # Secrets wird der Job uebersprungen statt rot zu werden.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Sind die Secrets hinterlegt?
+        id: secrets
+        run: |
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ] && [ -n "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cypress uebersprungen - keine Secrets im Repository hinterlegt."
+          fi
+
+      - name: Cypress
+        if: steps.secrets.outputs.ready == 'true'
+        uses: cypress-io/github-action@v6
+        with:
+          build: npm run build
+          start: npm start
+          wait-on: http://localhost:3000
+          wait-on-timeout: 120
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
