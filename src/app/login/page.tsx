@@ -16,27 +16,46 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setNotice(null);
 
-    const supabase = createClient();
-    const { error } =
-      mode === "signin"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+    try {
+      const supabase = createClient();
+      const { data, error } =
+        mode === "signin"
+          ? await supabase.auth.signInWithPassword({ email, password })
+          : await supabase.auth.signUp({ email, password });
 
-    if (error) {
-      setError(error.message);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      // Sign-up only returns a session when e-mail confirmation is switched
+      // off. With it on, the account exists but cannot be used yet — say so
+      // rather than redirecting into a wall.
+      if (!data.session) {
+        setNotice(
+          "Konto angelegt. Bestätige zuerst die E-Mail, die Supabase dir geschickt hat.",
+        );
+        setMode("signin");
+        return;
+      }
+
+      // The proxy reads the session from cookies, so a refresh is enough.
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      // Runs on every path, so the button can never stay stuck on "Moment…".
       setBusy(false);
-      return;
     }
-
-    // The middleware reads the session from cookies, so a refresh is enough.
-    router.push("/");
-    router.refresh();
   }
 
   return (
@@ -67,6 +86,9 @@ export default function LoginPage() {
             />
 
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {notice && (
+              <p className="text-sm text-muted-foreground">{notice}</p>
+            )}
 
             <Button type="submit" className="w-full" disabled={busy}>
               {busy ? "Moment…" : mode === "signin" ? "Anmelden" : "Konto anlegen"}
